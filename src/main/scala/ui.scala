@@ -6,70 +6,106 @@ import event._
 import reactive._
 import nielinjie.util.ui._
 
-object MasterAndDetail extends SimpleSwingApplication with Observing {
+object MainPanel extends SimpleSwingApplication with Observing with Operations {
   def top = new MainFrame {
     title = "First Swing App"
-    contents = new MigPanel("fill,debug", "[fill,:300:][fill,:300:]", "[fill,:400:]") {
-      add(new MigPanel("fill,debug", "[fill,:300:]", "[fill,:400:][][fill,:400:][][]") {
-        add(listPerson, "wrap")
-        add(textAge, "wrap")
-        add(listName, "wrap")
-        add(textF, "wrap")
-        add(textL, "")
-      }, "")
-      add(new MigPanel("fill,debug", "[fill,:300:]", "[fill,:400:][fill,:400:][][]") {
-
+    contents = new MigPanel("fill", "[fill,:300:]", "[fill,:400:][]") {
+      add(listActivity, "wrap")
+      add(new MigPanel("fill,debug", "[fill,:300:][]", "[fill,:300:]") {
+        add(listReview, "")
+        add(detailPanel, "")
       }, "")
     }
+  }
 
+  def detailPanel = new MigPanel("fill,debug", "[fill,:300:]", "[][][][][fill,:200:]") {
+    add(radioPassed, "wrap")
+    add(radioNoPass, "wrap")
+    add(radioUnReviewed, "wrap")
+    add(diffButton, "wrap")
+    add(textMemo, "wrap")
   }
 
   reactions += {
-
     case WindowClosed(top) => {
       println("closing")
       System.exit(0)
     }
   }
 
-  case class Person(age: Int, names: List[Name])
-
-  case class Name(first: String, last: String)
-
-  val persons = List(Person(32, List(Name("nie", "jason"), Name("NIE", "JASON"))), Person(27, List(Name("xu", "elsa"), Name("XU", "234"))))
-  val mdPerson = new MasterDetail(persons)
-  mdPerson.detailBind = Some(Bind(
+  val mdActivity = new MasterDetail[Activity](Nil)
+  mdActivity.detailBind = Some(Bind(
   {
-    a =>
-      mdName.setMaster(a.names)
-      textAge.text = a.age.toString
+    case Some(act) => {
+      mdReview.setMaster(act.reviews)
+    }
+    case None => //TODO disable
   }, {
-    () => {
-      mdName.saveDetail
-      Person(textAge.text.toInt, mdName.getMaster)
+    act => {
+      mdReview.saveDetail
+      act.copy(reviews = mdReview.getMaster)
     }
   }
   ))
 
-  val mdName = new MasterDetail[Name](Nil)
-  mdName.detailBind = Some(Bind({
-    n =>
-      textF.text = n.first
-      textL.text = n.last
+  val mdReview = new MasterDetail[Review](Nil)
+  mdReview.detailBind = Some(Bind({
+    case Some(review) => {
+      reviewingGroup.enable(true)
+      textMemo.text = review.memo
+      statusRadioGroup.status = Some(review.status)
+    }
+    case None => {
+      reviewingGroup.clean
+      reviewingGroup.enable(false)
+    }
   }, {
-    () => Name(textF.text, textL.text)
+    review => review.copy(memo = textMemo.text, status = statusRadioGroup.status.get)
   }))
 
-  val textAge = new TextField("age")
-  val listPerson = new ListView[Person]()
-  val listName = new ListView[Name]()
+  val listActivity = new ListView[Activity]()
+  val listReview = new ListView[Review]()
 
-  val textF = new TextField("f")
-  val textL = new TextField("l")
+  val textMemo = new TextField("")
+  val radioNoPass = new RadioButton("NoPass")
+  val radioPassed = new RadioButton("Passed")
+  val radioUnReviewed = new RadioButton("UnReviewd")
+  val statusRadioGroup = new ButtonGroup(radioPassed, radioNoPass, radioUnReviewed) {
+    val map = Map[AbstractButton, ReviewStatus](radioPassed -> Passed, radioNoPass -> NoPass, radioUnReviewed -> UnReviewed)
+    val map2 = Map[ReviewStatus, AbstractButton](Passed -> radioPassed, NoPass -> radioNoPass, UnReviewed -> radioUnReviewed)
 
+    def status = this.selected.map(map.apply(_))
+
+    def status_=(s: Option[ReviewStatus]) = {
+      s match {
+        case Some(st) => this.select(map2.apply(st))
+        case None => this.buttons.foreach {
+          _.selected = false
+        }
+      }
+    }
+  }
+
+  val diffButton = new Button("diff...")
+
+  val reviewingGroup = WidgetUtil.group(textMemo, radioPassed, radioNoPass, radioUnReviewed, diffButton)
+  val reviewGroup = reviewingGroup.++(listReview)
 
   import SwingSupport._
 
-  bindToListView(mdPerson, listPerson)
-  bindToListView(mdName, listName)
+  bindToListView(mdActivity, listActivity)
+  bindToListView(mdReview, listReview)
+
+  init()
+}
+
+trait Operations {
+
+  self: MainPanel.type =>
+
+
+  def init() =
+    mdActivity.setMaster(FackCCFacade.activities(FackCCFacade.currentStream))
+
+
 }
