@@ -5,17 +5,20 @@ import swing._
 import event._
 import reactive._
 import nielinjie.util.ui._
+import nieinjie.util.ui.Bind
 
 object MainPanel extends SimpleSwingApplication with Observing with Operations {
   def top = new MainFrame {
     title = "First Swing App"
     contents = new MigPanel("fill", "[fill,:300:]", "[fill,:400:][]") {
       add(listActivity, "wrap")
-      add(new MigPanel("fill,debug", "[fill,:300:][]", "[fill,:300:]") {
-        add(listReview, "")
-        add(detailPanel, "")
-      }, "")
+      add(reviewPanel, "")
     }
+  }
+
+  def reviewPanel = new MigPanel("fill,debug", "[fill,:300:][]", "[fill,:300:]") {
+    add(listReview, "")
+    add(detailPanel, "")
   }
 
   def detailPanel = new MigPanel("fill,debug", "[fill,:300:]", "[][][][][fill,:200:]") {
@@ -32,6 +35,17 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
       System.exit(0)
     }
   }
+
+  val projectLabel = new Label("Project Info")
+  val projectBind: Bind[Project] = Bind.readOnly({
+    case Some(project) => {
+      projectLabel.text = project.stream.name
+      mdActivity.setMaster(project.activities)
+    }
+    case None => {
+      //TODO clean and disable everything
+    }
+  })
 
   val mdActivity = new MasterDetail[Activity](Nil)
   mdActivity.detailBind = Some(Bind(
@@ -51,13 +65,13 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
   val mdReview = new MasterDetail[Review](Nil)
   mdReview.detailBind = Some(Bind({
     case Some(review) => {
-      reviewingGroup.enable(true)
+      detailGroup.enable(true)
       textMemo.text = review.memo
       statusRadioGroup.status = Some(review.status)
     }
     case None => {
-      reviewingGroup.clean
-      reviewingGroup.enable(false)
+      detailGroup.clean
+      detailGroup.enable(false)
     }
   }, {
     review => review.copy(memo = textMemo.text, status = statusRadioGroup.status.get)
@@ -88,24 +102,33 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
 
   val diffButton = new Button("diff...")
 
-  val reviewingGroup = WidgetUtil.group(textMemo, radioPassed, radioNoPass, radioUnReviewed, diffButton)
-  val reviewGroup = reviewingGroup.++(listReview)
+  val detailGroup = WidgetUtil.group(textMemo, radioPassed, radioNoPass, radioUnReviewed, diffButton)
+  val reviewListGroup = detailGroup.++(listReview)
+  val activityGroup = reviewListGroup.++(listActivity)
 
   import SwingSupport._
 
   bindToListView(mdActivity, listActivity)
   bindToListView(mdReview, listReview)
 
-  init()
+  projectBind.push(loadProject)
 }
 
 trait Operations {
-
   self: MainPanel.type =>
+  def loadProject(): Option[Project] = {
+    FackCCFacade.currentStream match {
+      case Some(stream) => {
+        Project.fromDB(stream) match {
+          case Some(p) => Some(p)
+          case None => Some(Project.fromCC(stream))
+        }
+      }
+      case None => None
+    }
+  }
+}
 
-
-  def init() =
-    mdActivity.setMaster(FackCCFacade.activities(FackCCFacade.currentStream))
-
-
+trait DomainObjects {
+  self: MainPanel.type =>
 }

@@ -8,7 +8,7 @@ object CCFacade {
 }
 
 object FackCCFacade {
-  def currentStream() = Stream("fack-stream")
+  def currentStream():Option[Stream] = Some(Stream("fack-stream"))
 
   def activities(stream: Stream) = {
     List(

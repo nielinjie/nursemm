@@ -5,17 +5,35 @@ import java.io.File
 import java.util.Date
 import DateFormat._
 import scala.util.matching.Regex
+import util.io.{XStreamSerializer, HasId, FileDB}
 
-case class Project(name: String, stream: Stream, activities: List[Activity])
+case class Project(stream: Stream, activities: List[Activity])
 
 object Project {
+  val dbRootPath = new File("./doc/codeReview")
+  implicit val projectId: HasId[Project] = new HasId[Project] {
+    def getId(project: Project) = project.stream.name
+  }
+  implicit val serializer = new XStreamSerializer[Project]
+
+  lazy val db = new FileDB[Project](dbRootPath)
+
+  def fromDB(stream: Stream) = db.get(stream.name)
+
+  def toDB(project: Project) = db.put(project)
+
+  def fromCC(stream: Stream) = Project(stream, FackCCFacade.activities(stream))
+
 }
-case class Stream(name:String)
-object Stream{
-  def fromCCOutput(string:String)={
+
+case class Stream(name: String)
+
+object Stream {
+  def fromCCOutput(string: String) = {
     Stream(string.split(":").last)
   }
 }
+
 case class Activity(cdName: String, user: String, date: Date, reviews: List[Review])
 
 object Activity {
