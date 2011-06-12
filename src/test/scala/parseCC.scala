@@ -1,7 +1,7 @@
 package nielinjie
 package nursemm
 
-import org.specs._
+import org.specs2.mutable._
 import nursemm.DateFormat._
 object CC extends Specification {
   "activites parsing" in {

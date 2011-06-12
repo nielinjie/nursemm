@@ -22,7 +22,7 @@ object Project {
 
   def toDB(project: Project) = db.put(project)
 
-  def fromCC(stream: Stream) = Project(stream, FackCCFacade.activities(stream))
+  def fromCC(stream: Stream) = FackCCFacade.activities(stream).map(Project(stream, _))
 
 }
 

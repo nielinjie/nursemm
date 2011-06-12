@@ -6,6 +6,7 @@ import event._
 import reactive._
 import nielinjie.util.ui._
 import nieinjie.util.ui.Bind
+import scalaz._
 
 object MainPanel extends SimpleSwingApplication with Observing with Operations {
   def top = new MainFrame {
@@ -111,21 +112,20 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
   bindToListView(mdActivity, listActivity)
   bindToListView(mdReview, listReview)
 
-  projectBind.push(loadProject)
+  projectBind.push(loadProject.toOption)
 }
 
 trait Operations {
   self: MainPanel.type =>
-  def loadProject(): Option[Project] = {
-    FackCCFacade.currentStream match {
-      case Some(stream) => {
-        Project.fromDB(stream) match {
-          case Some(p) => Some(p)
-          case None => Some(Project.fromCC(stream))
-        }
-      }
-      case None => None
-    }
+
+  val ccF = FackCCFacade
+  import Scalaz._
+
+  def loadProject(): Validation[String, Project] = {
+    for {
+      cs <- ccF.currentStream
+      proFromDB <- Project.fromDB(cs).fold(_.success, Project.fromCC(cs))
+    } yield proFromDB
   }
 }
 

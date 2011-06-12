@@ -1,6 +1,9 @@
 package nielinjie
 package nursemm
 
+import scalaz._
+import Scalaz._
+
 object CCFacade {
   //  def getStream:Stream={
   //    Stream("")
@@ -8,9 +11,9 @@ object CCFacade {
 }
 
 object FackCCFacade {
-  def currentStream():Option[Stream] = Some(Stream("fack-stream"))
+  def currentStream(): Validation[String, Stream] = (Stream("fack-stream")).success
 
-  def activities(stream: Stream) = {
+  def activities(stream: Stream): Validation[String, List[Activity]] = {
     List(
       Activity("cd1", "jason", DateFormat.defaultDateFormat.parse("2011-03-01"), List(
         Review("/a.file", "1", NoPass, "no"),
@@ -21,6 +24,6 @@ object FackCCFacade {
         Review("/c.file", "1", UnReviewed, "no"),
         Review("/d.file", "2", Passed, "noway")
       ))
-    )
+    ).success
   }
 }
