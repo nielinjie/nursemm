@@ -10,7 +10,10 @@ resolvers += ScalaToolsSnapshots
 
 resolvers += "wso" at "http://dist.wso2.org/maven2/"
 
+resolvers += "sona" at "http://oss.sonatype.org/content/repositories/snapshots"
+
 libraryDependencies += "org.specs2" %% "specs2" % "latest.release" % "test"
+
 
 libraryDependencies ++= Seq(
     "org.scalaz" %% "scalaz-core" % "latest.release",
@@ -24,3 +27,5 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) { (sv, deps) =>
 }
 
 fork in run := true
+
+checksums := Nil
