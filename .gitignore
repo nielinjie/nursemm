@@ -4,6 +4,7 @@
 *.log
 *.swp
 
+doc/
 target/
 lib_managed/
 src_managed/

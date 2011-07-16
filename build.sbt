@@ -13,10 +13,10 @@ resolvers += "wso" at "http://dist.wso2.org/maven2/"
 libraryDependencies += "org.specs2" %% "specs2" % "latest.release" % "test"
 
 libraryDependencies ++= Seq(
-	 "org.scalaz" %% "scalaz-core" % "latest.release",
-	  "nielinjie" %% "util.data" % "latest.release",
-	"nielinjie" %% "util.io" % "latest.release",
-	"nielinjie" %% "util.ui" % "latest.release"
+    "org.scalaz" %% "scalaz-core" % "latest.release",
+    "nielinjie" %% "util.data" % "latest.release",
+    "nielinjie" %% "util.io" % "latest.release",
+    "nielinjie" %% "util.ui" % "latest.release"
 )
 
 libraryDependencies <<= (scalaVersion, libraryDependencies) { (sv, deps) =>

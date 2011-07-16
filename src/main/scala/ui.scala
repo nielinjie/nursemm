@@ -3,21 +3,115 @@ package nursemm
 
 import swing._
 import event._
+
 import reactive._
 import nielinjie.util.ui._
-import nieinjie.util.ui.Bind
+import util.ui.Bind
+import util.ui.event._
 import scalaz._
+import sun.tools.jar.Main
 
-object MainPanel extends SimpleSwingApplication with Observing with Operations {
-  def top = new MainFrame {
+object MainPanel extends SimpleSwingApplication with Observing
+with ProjectInfoPanel with ActivityPanel with FilterPanel with ReviewPanel
+with Operations with BusinessObject {
+  def top = new MainFrame with WindowEventSupport {
     title = "First Swing App"
-    contents = new MigPanel("fill", "[fill,:300:]", "[fill,:400:][]") {
+    contents = new MigPanel("fill", "[fill,:300:]", "[][fill,:400:][][]") {
+      add(projectInfoPanel, "wrap")
       add(listActivity, "wrap")
+      add(filterPanel, "wrap")
       add(reviewPanel, "")
+    }
+
+    override def onClosing(w: Window) = {
+      println("closing")
+      System.exit(0)
     }
   }
 
-  def reviewPanel = new MigPanel("fill,debug", "[fill,:300:][]", "[fill,:300:]") {
+
+  val projectBind: Bind[Project] = Bind.readOnly({
+    projectOrError: Validation[String, Project] => projectOrError.fold({
+      error: String =>
+      //TODO clean and disable everything
+    }, {
+      project =>
+        mdActivity.setMaster(project.activities)
+    })
+  }).andThen(infoBind)
+
+
+  import SwingSupport._
+  import Bind._
+
+  bindToListView(mdActivity, listActivity)
+  bindToListView(mdReview, listReview)
+
+  val activityGroup = reviewListGroup.++(listActivity)
+
+  project = loadProject()
+  projectBind.push(project)
+}
+
+trait ActivityPanel {
+  self: MainPanel.type =>
+  val mdActivity = new MasterDetail[Activity](Nil)
+  mdActivity.detailBind = Some(Bind(Bind.noErrorHandle(
+  {
+    case Some(act) => {
+      mdReview.setMaster(act.reviews)
+    }
+    case None => //TODO disable
+  }), {
+    act => {
+      mdReview.saveDetail
+      act.map(_.copy(reviews = mdReview.getMaster))
+    }
+  }
+  ))
+
+  val listActivity = new ListView[Activity]() {
+    renderer = ListView.Renderer(a => "%s - %s - %tD %<tR - %d file(s)".format(a.cdName, a.user, a.date, a.reviews.size))
+  }
+
+}
+
+trait ProjectInfoPanel {
+  self: MainPanel.type =>
+
+  import EventSupport._
+
+  def projectInfoPanel = new MigPanel("fill,debug", "[fill,grow][][]", "[]") {
+    add(projectNameLabel, "")
+    add(saveButton, "")
+  }
+
+  val projectNameLabel = new Label("")
+  val saveButton = new Button("save")
+  saveButton.clicked.foreach {
+    x =>
+      mdReview.saveDetail
+      mdActivity.saveDetail
+      project = project.map(_.copy(activities = mdActivity.getMaster))
+      saveProject(project)
+  }
+  val infoGroup = WidgetUtil.group(projectNameLabel, saveButton)
+  val infoBind: Bind[Project] = Bind.readOnly({
+    vP => vP.fold({
+      error =>
+        projectNameLabel.text = error
+        infoGroup.enable(false)
+    }, {
+      p =>
+        projectNameLabel.text = p.stream.name
+        infoGroup.enable(true)
+    })
+  })
+}
+
+trait ReviewPanel {
+  self: MainPanel.type =>
+  def reviewPanel = new MigPanel("fill,debug", "[fill,grow][]", "[fill,:300:]") {
     add(listReview, "")
     add(detailPanel, "")
   }
@@ -30,41 +124,8 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
     add(textMemo, "wrap")
   }
 
-  reactions += {
-    case WindowClosed(top) => {
-      println("closing")
-      System.exit(0)
-    }
-  }
-
-  val projectLabel = new Label("Project Info")
-  val projectBind: Bind[Project] = Bind.readOnly({
-    case Some(project) => {
-      projectLabel.text = project.stream.name
-      mdActivity.setMaster(project.activities)
-    }
-    case None => {
-      //TODO clean and disable everything
-    }
-  })
-
-  val mdActivity = new MasterDetail[Activity](Nil)
-  mdActivity.detailBind = Some(Bind(
-  {
-    case Some(act) => {
-      mdReview.setMaster(act.reviews)
-    }
-    case None => //TODO disable
-  }, {
-    act => {
-      mdReview.saveDetail
-      act.copy(reviews = mdReview.getMaster)
-    }
-  }
-  ))
-
   val mdReview = new MasterDetail[Review](Nil)
-  mdReview.detailBind = Some(Bind({
+  mdReview.detailBind = Some(Bind(Bind.noErrorHandle({
     case Some(review) => {
       detailGroup.enable(true)
       textMemo.text = review.memo
@@ -74,20 +135,20 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
       detailGroup.clean
       detailGroup.enable(false)
     }
-  }, {
-    review => review.copy(memo = textMemo.text, status = statusRadioGroup.status.get)
+  }), {
+    review => review.map(_.copy(memo = textMemo.text, status = statusRadioGroup.status.get))
   }))
-
-  val listActivity = new ListView[Activity]()
-  val listReview = new ListView[Review]()
+  val listReview = new ListView[Review]() {
+    renderer = ListView.Renderer(r => "%s - %s - %s -%s".format(r.path, r.version, r.status.toString, r.memo))
+  }
 
   val textMemo = new TextField("")
   val radioNoPass = new RadioButton("NoPass")
   val radioPassed = new RadioButton("Passed")
   val radioUnReviewed = new RadioButton("UnReviewd")
   val statusRadioGroup = new ButtonGroup(radioPassed, radioNoPass, radioUnReviewed) {
-    val map = Map[AbstractButton, ReviewStatus](radioPassed -> Passed, radioNoPass -> NoPass, radioUnReviewed -> UnReviewed)
-    val map2 = Map[ReviewStatus, AbstractButton](Passed -> radioPassed, NoPass -> radioNoPass, UnReviewed -> radioUnReviewed)
+    val map = Map[AbstractButton, ReviewStatus](radioPassed -> Passed(), radioNoPass -> NoPass(), radioUnReviewed -> UnReviewed())
+    val map2 = Map[ReviewStatus, AbstractButton](Passed() -> radioPassed, NoPass() -> radioNoPass, UnReviewed() -> radioUnReviewed)
 
     def status = this.selected.map(map.apply(_))
 
@@ -105,30 +166,24 @@ object MainPanel extends SimpleSwingApplication with Observing with Operations {
 
   val detailGroup = WidgetUtil.group(textMemo, radioPassed, radioNoPass, radioUnReviewed, diffButton)
   val reviewListGroup = detailGroup.++(listReview)
-  val activityGroup = reviewListGroup.++(listActivity)
-
-  import SwingSupport._
-
-  bindToListView(mdActivity, listActivity)
-  bindToListView(mdReview, listReview)
-
-  projectBind.push(loadProject.toOption)
 }
 
-trait Operations {
+trait FilterPanel {
   self: MainPanel.type =>
 
-  val ccF = FackCCFacade
-  import Scalaz._
+  import EventSupport._
 
-  def loadProject(): Validation[String, Project] = {
-    for {
-      cs <- ccF.currentStream
-      proFromDB <- Project.fromDB(cs).fold(_.success, Project.fromCC(cs))
-    } yield proFromDB
+  def filterPanel = new MigPanel("fill,debug", "[fill,grow][][]", "[]") {
+    add(filterCheckbox, "")
+    add(filterConfigButton, "")
+    add(filterHelpButton, "")
   }
-}
 
-trait DomainObjects {
-  self: MainPanel.type =>
+  val filterCheckbox = new CheckBox("Apply Filter")
+  val filterConfigButton = new Button("Config...")
+  val filterHelpButton = new Button("What is this?")
+  filterCheckbox.toggled.foreach {
+    b =>
+      println("toggled - " + b)
+  }
 }

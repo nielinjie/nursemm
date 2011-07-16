@@ -53,15 +53,16 @@ object Review {
     val format = """"(.*?)@@(.*?)"""".r
     format.findAllIn(cc).matchData.map {
       path_version =>
-        Review(path_version.group(1), path_version.group(2), UnReviewed, "")
+        Review(path_version.group(1), path_version.group(2), UnReviewed(), "")
     }.toList
   }
 }
 
 sealed trait ReviewStatus
 
-case object Passed extends ReviewStatus
+//XXX case object is not singleton when xstream deserializing
+case class Passed extends ReviewStatus
 
-case object NoPass extends ReviewStatus
+case class NoPass extends ReviewStatus
 
-case object UnReviewed extends ReviewStatus
+case class UnReviewed extends ReviewStatus
