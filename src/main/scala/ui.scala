@@ -81,7 +81,7 @@ trait ProjectInfoPanel {
 
   import EventSupport._
 
-  def projectInfoPanel = new MigPanel("fill,debug", "[fill,grow][][]", "[]") {
+  def projectInfoPanel = new MigPanel("fill", "[fill,grow][][]", "[]") {
     add(projectNameLabel, "")
     add(saveButton, "")
   }
@@ -111,12 +111,12 @@ trait ProjectInfoPanel {
 
 trait ReviewPanel {
   self: MainPanel.type =>
-  def reviewPanel = new MigPanel("fill,debug", "[fill,grow][]", "[fill,:300:]") {
+  def reviewPanel = new MigPanel("fill", "[fill,grow][]", "[fill,:300:]") {
     add(listReview, "")
     add(detailPanel, "")
   }
 
-  def detailPanel = new MigPanel("fill,debug", "[fill,:300:]", "[][][][][fill,:200:]") {
+  def detailPanel = new MigPanel("fill", "[fill,:300:]", "[][][][][fill,:200:]") {
     add(radioPassed, "wrap")
     add(radioNoPass, "wrap")
     add(radioUnReviewed, "wrap")
@@ -132,7 +132,7 @@ trait ReviewPanel {
       statusRadioGroup.status = Some(review.status)
     }
     case None => {
-      detailGroup.clean
+      //detailGroup.clean
       detailGroup.enable(false)
     }
   }), {
@@ -173,17 +173,55 @@ trait FilterPanel {
 
   import EventSupport._
 
-  def filterPanel = new MigPanel("fill,debug", "[fill,grow][][]", "[]") {
+  def filterPanel = new MigPanel("fill", "[fill,grow][]", "[][]") {
     add(filterCheckbox, "")
-    add(filterConfigButton, "")
-    add(filterHelpButton, "")
+    add(filterConfigButton, "wrap")
+    add(statusFiltersPanel,"")
+    // add(filterHelpButton, "")
   }
 
-  val filterCheckbox = new CheckBox("Apply Filter")
-  val filterConfigButton = new Button("Config...")
-  val filterHelpButton = new Button("What is this?")
+  val filterCheckbox = new CheckBox("Source file select strategy. (Not implemented yet)")
+  val filterConfigButton = new Button("How to Config...")
+  filterCheckbox.enabled = false
+  filterConfigButton.enabled = false
+  //val filterHelpButton = new Button("What is this?")
   filterCheckbox.toggled.foreach {
     b =>
       println("toggled - " + b)
+  }
+
+
+  val statusNames = List("Nopass", "UnReviewed", "Passed")
+  val status = List(NoPass(), UnReviewed(), Passed())
+  val checkboxes = statusNames.map(new CheckBox(_))
+  checkboxes.foreach {
+    cb =>
+      cb.selected=true
+      cb.toggled.foreach {
+        b=>
+        mdReview.setFilter(findFilter)
+      }
+  }
+  val filters = status.map {
+    st: ReviewStatus =>
+      new Filter[Review] {
+        def filter(review: Review) = review.status == st
+      }
+  }
+  val statusFiltersPanel=new MigPanel("fill","[][][]","[]"){
+    checkboxes.foreach{
+      add(_,"")
+    }
+  }
+
+  def findFilter:Option[Filter[Review]] = {
+    val needApplyed=checkboxes.zip(filters).filter({
+      //cf:(CheckBox,Filter[Review])=>
+      //cf
+        _._1.selected
+    }).map({
+      _._2
+    })
+    needApplyed.reduceLeftOption(_ or _)
   }
 }
